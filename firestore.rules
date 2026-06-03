@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Authentication Helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Fetch target user metadata from Firestore users table
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check if user has specific access privilege role
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+    
+    // Check if user is member of specific department
+    function isMemberOf(moduleId) {
+      return isAuthenticated() && getUserData().moduleId == moduleId;
+    }
+
+    // --- COLLECTION SECURITY ---
+
+    // Users: All authenticated users can view teammates. Users can edit their own profiles (except roles). Admins can edit everything.
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('admin') || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+    }
+
+    // Modules: All users can view. Admins can CRUD.
+    match /modules/{moduleId} {
+      allow read: if isAuthenticated();
+      allow write: if hasRole('admin');
+    }
+
+    // Tasks: All users can read. Leads/Admins can write. Members of module can update task progress.
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if hasRole('admin') || hasRole('lead');
+      allow update: if isAuthenticated() && (
+        hasRole('admin') || 
+        hasRole('lead') || 
+        isMemberOf(resource.data.moduleId)
+      );
+    }
+
+    // Checklists: All members can read/write checklist sub-items.
+    match /checklists/{checklistId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Handshakes: All users can read. Sender Leads can create. Receiver Leads can review (update).
+    match /handshakes/{handshakeId} {
+      allow read: if isAuthenticated();
+      allow create: if hasRole('lead') && isMemberOf(request.resource.data.senderModuleId);
+      allow update: if hasRole('lead') && isMemberOf(resource.data.receiverModuleId);
+      allow delete: if hasRole('admin');
+    }
+
+    // Files & Versions: All users can read. Members can write workspace files within their department.
+    match /files/{fileId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (hasRole('admin') || hasRole('lead') || isMemberOf(resource.data.moduleId));
+    }
+    
+    match /file_versions/{versionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
+
+    // Audit logs: IMMUTABLE. Read is exclusive to Admins and Org Heads. No update/deletes are ever allowed!
+    match /audit_logs/{logId} {
+      allow read: if hasRole('admin') || hasRole('org_head');
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    
+    // Notifications: Read and toggle read state only by target owner.
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create: if isAuthenticated();
+      allow delete: if false;
+    }
+  }
+}
