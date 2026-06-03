@@ -494,10 +494,26 @@
       <div class="right-profile-col">
         <!-- Top utility buttons bar -->
         <div class="profile-top-actions">
-          <button class="action-btn-circle" title="Notifications">
-            <i class="fa-regular fa-bell"></i>
-            <span class="noti-badge-red"></span>
-          </button>
+          <div class="notification-bell-container" style="position: relative;">
+            <button class="action-btn-circle" id="btn-notification-bell" title="Notifications">
+              <i class="fa-regular fa-bell"></i>
+              <span class="noti-badge-red" id="noti-badge-element" style="display: none;"></span>
+            </button>
+            <!-- Dropdown Menu for notification history -->
+            <div class="notification-dropdown hidden" id="notification-dropdown-menu">
+              <div class="dropdown-header">
+                <h3>Notifications</h3>
+                <button class="clear-all-btn" id="btn-clear-notifications">Clear All</button>
+              </div>
+              <div class="dropdown-body" id="notification-dropdown-list">
+                <!-- Dynamically populated notification rows -->
+                <div class="dropdown-empty-state" id="notification-empty-state">
+                  <i class="fa-solid fa-bell-slash"></i>
+                  <p>No new notifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
           <button class="action-btn-circle" title="Options">
             <i class="fa-solid fa-ellipsis-vertical"></i>
           </button>
@@ -688,5 +704,8 @@
   </div>
 
   <script src="app.js?v=hackathon_v6"></script>
+  
+  <!-- Stackable Glassmorphic Toast Container -->
+  <div class="toast-container" id="toast-container-root"></div>
 </body>
 </html>

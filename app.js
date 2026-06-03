@@ -124,6 +124,10 @@ function writeLog(action, moduleId, metadata) {
     avatar: STATE.currentUser ? STATE.currentUser.avatar : 'emmanuella.png'
   });
   renderAuditLogs();
+  
+  if (typeof triggerLogNotification === 'function') {
+    triggerLogNotification(action, moduleId, metadata);
+  }
 }
 
 // --- 3. RESPONSIVE PRESENTATION RENDERING ---
@@ -144,6 +148,7 @@ function initPortal() {
   bindQuickActionButtons();
   initPenguinEyeTracking();
   initMascotPasswordReveal();
+  initNotificationSystem();
 }
 
 // Render Overview Statistics Cards (Styled pixel-perfect matching reference image!)
@@ -1317,6 +1322,9 @@ window.executeQuickLogin = function(email) {
       executeLogin(STATE.users.find(u => u.uid === 'lead_dev'));
     } else {
       showPromptDialog('Authentication Failed', [], null, `<p style="font-size:13px; color:var(--danger); font-weight:bold;">Pre-seeded demo account not found. Use "ayush@glassboard.com".</p>`);
+      if (typeof showToast === 'function') {
+        showToast('Authentication Failed', 'Demo account not found. Try "ayush@glassboard.com".', 'warning');
+      }
     }
   }
 };
@@ -1968,6 +1976,300 @@ function initMascotPasswordReveal() {
       mascot.classList.remove('covering-eyes');
     });
   });
+}
+
+// --- 12. GLASSMORPHIC NOTIFICATION & TOAST SYSTEM ---
+function initNotificationSystem() {
+  // Initialize mock notifications if not present
+  if (!STATE.notifications) {
+    STATE.notifications = [
+      {
+        id: 'notif_init_1',
+        title: 'QA Pipeline Blocked',
+        message: 'Quality Assurance is currently blocked by Software Development.',
+        type: 'warning',
+        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+        read: false
+      },
+      {
+        id: 'notif_init_2',
+        title: 'Design Specs Finalized',
+        message: 'Sarah Chen approved UX specs for Design Studio.',
+        type: 'success',
+        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        read: true
+      }
+    ];
+  }
+
+  // Bell icon event listener
+  const bellBtn = document.getElementById('btn-notification-bell');
+  const dropdownMenu = document.getElementById('notification-dropdown-menu');
+
+  if (bellBtn && dropdownMenu) {
+    bellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = dropdownMenu.classList.contains('hidden');
+      if (isHidden) {
+        dropdownMenu.classList.remove('hidden');
+        markAllNotificationsAsRead();
+      } else {
+        dropdownMenu.classList.add('hidden');
+      }
+    });
+  }
+
+  // Outside click closes dropdown
+  document.addEventListener('click', (e) => {
+    if (dropdownMenu && !dropdownMenu.classList.contains('hidden')) {
+      const isClickInside = dropdownMenu.contains(e.target) || 
+                            (bellBtn && bellBtn.contains(e.target));
+      if (!isClickInside) {
+        dropdownMenu.classList.add('hidden');
+      }
+    }
+  });
+
+  // Clear all button event listener
+  const clearBtn = document.getElementById('btn-clear-notifications');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      STATE.notifications = [];
+      updateNotificationBadge();
+      renderNotificationsList();
+    });
+  }
+
+  // Initial draw
+  updateNotificationBadge();
+  renderNotificationsList();
+}
+
+function markAllNotificationsAsRead() {
+  if (STATE.notifications) {
+    STATE.notifications.forEach(n => n.read = true);
+  }
+  updateNotificationBadge();
+  renderNotificationsList();
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById('noti-badge-element');
+  if (!badge) return;
+
+  const unreadCount = STATE.notifications ? STATE.notifications.filter(n => !n.read).length : 0;
+  if (unreadCount > 0) {
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderNotificationsList() {
+  const listEl = document.getElementById('notification-dropdown-list');
+  const emptyState = document.getElementById('notification-empty-state');
+  if (!listEl) return;
+
+  // Clear all current items
+  const items = listEl.querySelectorAll('.notification-item');
+  items.forEach(item => item.remove());
+
+  if (!STATE.notifications || STATE.notifications.length === 0) {
+    if (emptyState) emptyState.style.display = 'flex';
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = 'none';
+
+  STATE.notifications.forEach(notif => {
+    const item = document.createElement('div');
+    item.className = `notification-item ${notif.read ? '' : 'unread'}`;
+    
+    let iconClass = 'fa-info-circle';
+    if (notif.type === 'success') iconClass = 'fa-check-circle';
+    else if (notif.type === 'warning') iconClass = 'fa-exclamation-triangle';
+    else if (notif.type === 'action') iconClass = 'fa-bolt';
+
+    const timeStr = formatNotifTime(notif.timestamp);
+
+    item.innerHTML = `
+      <div class="noti-item-icon-wrapper ${notif.type}">
+        <i class="fa-solid ${iconClass}"></i>
+      </div>
+      <div class="noti-item-content">
+        <div class="noti-item-title">${notif.title}</div>
+        <div class="noti-item-message">${notif.message}</div>
+        <div class="noti-item-time">${timeStr}</div>
+      </div>
+    `;
+    
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notif.read = true;
+      renderNotificationsList();
+      updateNotificationBadge();
+    });
+
+    listEl.appendChild(item);
+  });
+}
+
+function formatNotifTime(date) {
+  const diffMs = new Date() - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+window.showToast = function(title, message, type = 'info') {
+  const container = document.getElementById('toast-container-root');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast-notification ${type}`;
+
+  let iconClass = 'fa-info-circle';
+  if (type === 'success') iconClass = 'fa-check-circle';
+  else if (type === 'warning') iconClass = 'fa-exclamation-triangle';
+  else if (type === 'action') iconClass = 'fa-bolt';
+
+  toast.innerHTML = `
+    <div class="toast-icon"><i class="fa-solid ${iconClass}"></i></div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      <div class="toast-message">${message}</div>
+    </div>
+    <button class="toast-close-btn" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto remove toast after 4.5s
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.remove();
+      }
+    }, 500);
+  }, 4000);
+
+  // Add notification to history
+  addNotificationToHistory(title, message, type);
+};
+
+function addNotificationToHistory(title, message, type) {
+  const notif = {
+    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    title: title,
+    message: message,
+    type: type,
+    timestamp: new Date(),
+    read: false
+  };
+
+  if (!STATE.notifications) {
+    STATE.notifications = [];
+  }
+  
+  STATE.notifications.unshift(notif);
+  
+  // Cap at 20 items
+  if (STATE.notifications.length > 20) {
+    STATE.notifications.pop();
+  }
+
+  updateNotificationBadge();
+  renderNotificationsList();
+}
+
+function triggerLogNotification(action, moduleId, metadata) {
+  let title = 'System Activity';
+  let message = metadata || '';
+  let type = 'info';
+
+  const userDisplayName = STATE.currentUser ? STATE.currentUser.displayName : 'System';
+
+  switch (action) {
+    case 'LOGIN':
+      title = 'Access Granted';
+      message = `${userDisplayName} signed in successfully.`;
+      type = 'success';
+      break;
+    case 'LOGOUT':
+      title = 'Session Terminated';
+      message = 'Logged out safely from portal.';
+      type = 'info';
+      break;
+    case 'SIGNUP':
+      title = 'Profile Created';
+      message = 'New user account registered.';
+      type = 'success';
+      break;
+    case 'TASK_CHECKLIST_TOGGLE':
+      const isChecked = message.includes('isChecked: true');
+      title = isChecked ? 'Milestone Cleared' : 'Milestone Restored';
+      message = `Pipeline checklist item updated by ${userDisplayName}.`;
+      type = 'action';
+      break;
+    case 'BOTTLENECK_QUICK_RESOLVE':
+      title = 'Bottleneck Resolved';
+      message = 'All active blocking dependencies completed.';
+      type = 'success';
+      break;
+    case 'HANDSHAKE_ACCEPT':
+      title = 'Handshake Confirmed';
+      message = `Digital handshake signature approved for downstream pipeline.`;
+      type = 'success';
+      break;
+    case 'HANDSHAKE_REJECT':
+      title = 'Handshake Rejected';
+      message = `Handshake verification failed or rejected.`;
+      type = 'warning';
+      break;
+    case 'HANDSHAKE_CREATE':
+      title = 'Handshake Initiated';
+      message = `New sign-off request routed to next department.`;
+      type = 'action';
+      break;
+    case 'TASK_CREATE':
+      title = 'Task Scheduled';
+      message = `Internal module workflow task added successfully.`;
+      type = 'action';
+      break;
+    case 'FILE_UPLOAD':
+      title = 'Specification Uploaded';
+      message = `New document specification uploaded to module files.`;
+      type = 'action';
+      break;
+    case 'FILE_MODIFY':
+      title = 'Specification Updated';
+      message = `A document version draft was modified.`;
+      type = 'action';
+      break;
+    case 'MODULE_CREATE':
+      title = 'Module Registered';
+      message = `New module node added to project DAG structure.`;
+      type = 'success';
+      break;
+    case 'USER_PROMOTE':
+    case 'USER_REGISTER_AND_PROMOTE':
+      title = 'Security Clearance Updated';
+      message = `Role and credentials updated dynamically.`;
+      type = 'success';
+      break;
+    case 'CHATBOT_OVERRIDE_RESOLVE':
+      title = 'GlassBot Override';
+      message = `Active blocks bypassed programmatically by GlassBot.`;
+      type = 'success';
+      break;
+  }
+
+  showToast(title, message, type);
 }
 
 // Start portal loop
