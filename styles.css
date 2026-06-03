@@ -2224,3 +2224,43 @@ body {
 .alert-resolve-btn:active {
   transform: translateY(1px);
 }
+
+/* ================= LOGIN PENGUIN MASCOT INTERACTIVE VISUALS ================= */
+.login-mascot-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.penguin-mascot {
+  width: 155px;
+  height: 165px;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.45));
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.penguin-mascot:hover {
+  transform: translateY(-5px) scale(1.04);
+}
+
+/* Wing/Flipper animations for hiding eyes */
+.penguin-mascot #left-wing {
+  transform-origin: 32px 115px;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.penguin-mascot #right-wing {
+  transform-origin: 168px 115px;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* When covering-eyes class is applied, swing wings up to cover the face! */
+.penguin-mascot.covering-eyes #left-wing {
+  transform: rotate(120deg) translate(2px, -8px);
+}
+
+.penguin-mascot.covering-eyes #right-wing {
+  transform: rotate(-120deg) translate(-2px, -8px);
+}

@@ -142,6 +142,8 @@ function initPortal() {
   initAuthUI();
   initGlassBot();
   bindQuickActionButtons();
+  initPenguinEyeTracking();
+  initMascotPasswordReveal();
 }
 
 // Render Overview Statistics Cards (Styled pixel-perfect matching reference image!)
@@ -1913,6 +1915,59 @@ function generateBotIntelligence(query) {
 
   // Default fallback response
   return `🤖 <strong>Command Not Recognized:</strong>\n\nI am currently operating in **Audit Diagnostics Mode**. I detected your query about: *"${query}"*.\n\nCould you try rephrasing or ask me to **"Trace active bottlenecks"** or **"Resolve Software Development bottleneck"**?`;
+}
+
+// --- 10. LOGIN MASCOT PENGUIN EYE-TRACKING ANIMATION ---
+function initPenguinEyeTracking() {
+  const leftEyeGroup = document.getElementById('left-eye-pupil');
+  const rightEyeGroup = document.getElementById('right-eye-pupil');
+
+  if (!leftEyeGroup || !rightEyeGroup) return;
+
+  document.addEventListener('mousemove', (e) => {
+    // Left eye calculations
+    const leftEyeRect = leftEyeGroup.getBoundingClientRect();
+    const leftCenterX = leftEyeRect.left + leftEyeRect.width / 2;
+    const leftCenterY = leftEyeRect.top + leftEyeRect.height / 2;
+    
+    // Right eye calculations
+    const rightEyeRect = rightEyeGroup.getBoundingClientRect();
+    const rightCenterX = rightEyeRect.left + rightEyeRect.width / 2;
+    const rightCenterY = rightEyeRect.top + rightEyeRect.height / 2;
+
+    // Angle and translation for Left Eye
+    const leftAngle = Math.atan2(e.clientY - leftCenterY, e.clientX - leftCenterX);
+    // Limit translation distance within eyeball (max 4.5px)
+    const leftDist = Math.min(4.5, Math.hypot(e.clientX - leftCenterX, e.clientY - leftCenterY) / 18);
+    const leftDx = leftDist * Math.cos(leftAngle);
+    const leftDy = leftDist * Math.sin(leftAngle);
+
+    // Angle and translation for Right Eye
+    const rightAngle = Math.atan2(e.clientY - rightCenterY, e.clientX - rightCenterX);
+    const rightDist = Math.min(4.5, Math.hypot(e.clientX - rightCenterX, e.clientY - rightCenterY) / 18);
+    const rightDx = rightDist * Math.cos(rightAngle);
+    const rightDy = rightDist * Math.sin(rightAngle);
+
+    // Translate the SVG groups directly relative to their anchor coordinates
+    leftEyeGroup.style.transform = `translate(${leftDx}px, ${leftDy}px)`;
+    rightEyeGroup.style.transform = `translate(${rightDx}px, ${rightDy}px)`;
+  });
+}
+
+// --- 11. PENGUIN MASCOT PASSWORD SHY/REVEAL EYE COVER ANIMATION ---
+function initMascotPasswordReveal() {
+  const mascot = document.querySelector('.penguin-mascot');
+  if (!mascot) return;
+
+  const passwordInputs = document.querySelectorAll('input[type="password"]');
+  passwordInputs.forEach(input => {
+    input.addEventListener('focus', () => {
+      mascot.classList.add('covering-eyes');
+    });
+    input.addEventListener('blur', () => {
+      mascot.classList.remove('covering-eyes');
+    });
+  });
 }
 
 // Start portal loop
